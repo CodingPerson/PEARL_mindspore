@@ -269,8 +269,12 @@ def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,atten
             doc_bitems_embeddings_ids[t].append(list(m))
             #weights = [0.5 for i in list(m)]
             weights = [document_token_weights[t][i] for i in list(m)]
+
             embeddings = [document_token_embeddings[t][i] for i in list(m)]
-            bitem_embedding = np.average(embeddings,weights=weights,axis=0)
+            if sum(weights) != 0:
+                bitem_embedding = np.average(embeddings,weights=weights,axis=0)
+            else:
+                bitem_embedding = np.average(embeddings,axis=0)
             all_embeddings.append(bitem_embedding)
             all_doc_bitem_fre[t].append(str(1))
 

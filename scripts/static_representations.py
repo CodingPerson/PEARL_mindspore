@@ -4,23 +4,23 @@ import os
 import pickle as pk
 import string
 from collections import defaultdict, Counter
-
+import mindspore
 import nltk
 import numpy as np
-import torch
+# import torch
 from nltk.corpus import stopwords
 from tqdm import tqdm
-
+from mindspore import nn,ops
 from preprocessing_utils import load
 from utils import INTERMEDIATE_DATA_FOLDER_PATH, MODELS, tensor_to_numpy
-
+from transformers import BertConfig
 from utils import feature_select
 
 punctuation_map = dict((ord(char), None) for char in string.punctuation)
 s = nltk.stem.SnowballStemmer('english')
 def prepare_sentence(tokenizer, text):
     # setting for BERT
-    model_max_tokens = 512
+    model_max_tokens = 64
     has_sos_eos = True
     ######################
     max_tokens = model_max_tokens
@@ -32,7 +32,7 @@ def prepare_sentence(tokenizer, text):
         prepare_sentence.sos_id, prepare_sentence.eos_id = tokenizer.encode("", add_special_tokens=True)
         print(prepare_sentence.sos_id, prepare_sentence.eos_id)
 
-    tokenized_text = tokenizer.basic_tokenizer.tokenize(text, never_split=tokenizer.all_special_tokens)
+    tokenized_text = tokenizer.basic_tokenizer.tokenize(text)
     tokenized_to_id_indicies = []
 
     tokenids_chunks = []
@@ -58,13 +58,19 @@ def prepare_sentence(tokenizer, text):
 
 
 def sentence_encode(tokens_id, model, layer):
-    input_ids = torch.tensor([tokens_id], device=model.device)
 
-    with torch.no_grad():
-        hidden_states = model(input_ids)
-    all_layer_outputs = hidden_states[2]
+    inputs = mindspore.Tensor(tokens_id, dtype=mindspore.dtype.int32).unsqueeze(0)
 
-    layer_embedding = tensor_to_numpy(all_layer_outputs[layer].squeeze(0))[1: -1]
+    masks = ops.ones_like(inputs,dtype=mindspore.dtype.int32)
+
+    types = ops.zeros_like(masks,dtype=mindspore.dtype.int32)
+
+
+
+    hidden_states = model(inputs,input_mask=masks,token_type_ids=types)
+    all_layer_outputs = hidden_states[0]
+    # print(all_layer_outputs.shape)
+    layer_embedding = tensor_to_numpy(ops.squeeze(all_layer_outputs)[1: -1])
     #layer_embedding = tensor_to_numpy(hidden_states[0].squeeze(0))[1: -1]
     return layer_embedding
 
@@ -78,9 +84,18 @@ def sentence_to_wordtoken_embeddings(layer_embeddings, tokenized_text, tokenized
 
 
 def handle_sentence(model, layer, tokenized_text, tokenized_to_id_indicies, tokenids_chunks):
-    layer_embeddings = [
-        sentence_encode(tokenids_chunk, model, layer) for tokenids_chunk in tokenids_chunks
-    ]
+    layer_embeddings=[]
+    for tokenids_chunk in tokenids_chunks:
+        try:
+            temp = sentence_encode(tokenids_chunk, model, layer)
+        except:
+            print('error')
+            continue
+
+        layer_embeddings.append(temp)
+    # layer_embeddings = [
+    #     sentence_encode(tokenids_chunk, model, layer) for tokenids_chunk in tokenids_chunks
+    # ]
     word_embeddings = sentence_to_wordtoken_embeddings(layer_embeddings,
                                                        tokenized_text,
                                                        tokenized_to_id_indicies)
@@ -137,9 +152,13 @@ def main(args):
     model_class, tokenizer_class, pretrained_weights = MODELS[args.lm_type]
 
     tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
-    model = model_class.from_pretrained(pretrained_weights, output_hidden_states=True)
-    model.eval()
-    model.cuda()
+    config = BertConfig.from_pretrained(pretrained_weights)
+    config.dtype = mindspore.dtype.float32
+    config.compute_type = mindspore.dtype.float16
+
+    model = model_class(config,is_training=True,use_one_hot_embeddings=False)
+    model.set_train(False)
+    #model.cuda()
 
     tokenization_info = []
     import re
@@ -161,7 +180,7 @@ def main(args):
         tokenized_text, tokenized_to_id_indicies, tokenids_chunks = prepare_sentence(tokenizer, text)
         without_stopwords = [w for w in tokenized_text if not w in stopwords.words('english')]
         clean_texts.append(without_stopwords)
-    features = feature_select(clean_texts)[0:len(updated_counts.keys())]
+    #features = feature_select(clean_texts)[0:len(updated_counts.keys())]
     class_names = dataset["class_names"]
     class_words = []
     for names in class_names:
@@ -203,13 +222,13 @@ def main(args):
             "vocab_words": vocab_words,
             "word_to_index": {v: k for k, v in enumerate(vocab_words)},
             "vocab_occurrence": vocab_occurrence,
-            "tf_idf_vocab":features
+            #"tf_idf_vocab":features
         }, f, protocol=4)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_name", type=str, required=True)
+    parser.add_argument("--dataset_name", type=str,default='profession')
     parser.add_argument("--random_state", type=int, default=42)
     parser.add_argument("--lm_type", type=str, default='bbu')
     parser.add_argument("--layer", type=int, default=12)

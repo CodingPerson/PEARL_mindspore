@@ -15,13 +15,15 @@ from collections import Counter, defaultdict
 
 from scipy.spatial.distance import cdist
 from sklearn.metrics import confusion_matrix, f1_score,accuracy_score
-from transformers import BertModel, BertTokenizer
-from transformers import RobertaModel,RobertaTokenizer
+# from mindformers import BertForPreTraining,BertTokenizer
+from transformers import BertTokenizer
+from bert_model import BertModel
+# from transformers import RobertaModel,RobertaTokenizer
 
 MODELS = {
-    'bbc': (BertModel, BertTokenizer, 'bert-base-cased'),
+    #'bbc': (BertForPreTraining, BertTokenizer, 'bert_base-cased'),
     'bbu': (BertModel, BertTokenizer, 'bert-base-uncased'),
-    'roberta':(RobertaModel,RobertaTokenizer,'roberta-base')
+    # 'roberta':(RobertaModel,RobertaTokenizer,'roberta-base')
 }
 
 # all paths can be either absolute or relative to this utils file
@@ -100,7 +102,7 @@ def ndcg_at_k(r, k, method=0):
         return 0.
     return dcg_at_k(r, k, method) / dcg_max
 def tensor_to_numpy(tensor):
-    return tensor.clone().detach().cpu().numpy()
+    return tensor.numpy()
 
 
 def cosine_similarity_embeddings(emb_a, emb_b):

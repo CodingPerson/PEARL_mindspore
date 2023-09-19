@@ -7,12 +7,13 @@ import numpy as np
 from scipy.special import softmax
 from scipy.stats import entropy
 from tqdm import tqdm
-
+import mindspore
 from static_representations import handle_sentence
 from utils import (INTERMEDIATE_DATA_FOLDER_PATH, MODELS,
                    cosine_similarity_embedding, cosine_similarity_embeddings,
                    evaluate_predictions, tensor_to_numpy)
-
+from mindspore import nn,ops
+from transformers import BertConfig
 
 def probability_confidence(prob):
     return max(softmax(prob))
@@ -109,13 +110,13 @@ def weight_sentence_with_attention(vocab, tokenized_text, contextualized_word_re
     static_ids=[]
     static_word_representations = vocab["static_word_representations"]
     word_to_index = vocab["word_to_index"]
-    tf_idf_vocab = vocab["tf_idf_vocab"]
+    # tf_idf_vocab = vocab["tf_idf_vocab"]
     tf_words = []
     tokens=[]
-    for tf in tf_idf_vocab:
-        tf_words.append(tf[0])
+    # for tf in tf_idf_vocab:
+    #     tf_words.append(tf[0])
     for i, token in enumerate(tokenized_text):
-        if token in word_to_index and token in tf_words:
+        if token in word_to_index:
             static_representations.append(static_word_representations[word_to_index[token]])
             contextualized_representations.append(contextualized_word_representations[i])
             static_ids.append(word_to_index[token])
@@ -163,12 +164,12 @@ def main(args):
         static_word_representations = vocab["static_word_representations"]
         word_to_index = vocab["word_to_index"]
         vocab_words = vocab["vocab_words"]
-        tf_idf = vocab["tf_idf_vocab"]
+        #tf_idf = vocab["tf_idf_vocab"]
     with open(os.path.join(data_folder, "tokenization_lm-bbu.pk"), "rb") as f:
         tokenization_info = pk.load(f)["tokenization_info"]
-    tf_words = []
-    for tf in tf_idf:
-        tf_words.append(tf[0])
+    # tf_words = []
+    # for tf in tf_idf:
+    #     tf_words.append(tf[0])
     print("Finish reading data")
 
     print(class_names)
@@ -200,12 +201,15 @@ def main(args):
         class_repres.append(word_representattion)
     print(np.array(class_words_representations).shape)
 
-
-
     model_class, tokenizer_class, pretrained_weights = MODELS[args.lm_type]
-    model = model_class.from_pretrained(pretrained_weights, output_hidden_states=True)
-    model.eval()
-    model.cuda()
+
+    tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
+    config = BertConfig.from_pretrained(pretrained_weights)
+    config.dtype = mindspore.dtype.float32
+    config.compute_type = mindspore.dtype.float16
+
+    model = model_class(config, is_training=True, use_one_hot_embeddings=False)
+    model.set_train(False)
 
     document_representations = []
     document_statics=[]
@@ -251,7 +255,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_name", type=str, required=True)
+    parser.add_argument("--dataset_name", type=str, default='profession')
     parser.add_argument("--random_state", type=int, default=42)
     parser.add_argument("--lm_type", type=str, default='bbu')
     parser.add_argument("--layer", type=int, default=12)
