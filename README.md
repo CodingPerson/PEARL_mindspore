@@ -1,9 +1,9 @@
 # The Framework PEARL
 ## Environment
 
-Computational platform: PyTorch 1.4.0, NVIDIA Geforce GTX 3090 (GPU), Inter i9-10900X (CPU), CUDA Toolkit 10.0
+Computational platform: Mindspore 2.0.0, NVIDIA Geforce GTX 3090 (GPU), Inter i9-10900X (CPU), CUDA Toolkit 11.7
 
-Development language: Python 3.6/C++
+Development language: Python 3.8/C++
        
 Liabraries are listed as follow, which can be installed via the command `pip install -r requirements.txt`.
 ```
