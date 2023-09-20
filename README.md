@@ -32,8 +32,8 @@ Note that PEARL is tested on the weakly supervised text classification task to v
 ## Reproduce
 ### Preprocess the profession data set:
 
-    CUDA_VISIBLE_DEVICES = [gpu_id] python static_representations.py --dataset_name profession
-    CUDA_VISIBLE_DEVICES = [gpu_id] python utterance_word_representations.py --dataset_name profesion
+    python static_representations.py --dataset_name profession
+    python utterance_word_representations.py --dataset_name profesion
 
 Similarly, the hobby (resp. 20News) data set can be preprocessed by replacing "profession" as "hobby" (resp. "20News").
 ### Run PEARL on the profession data set:
