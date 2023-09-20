@@ -1,7 +1,7 @@
 # The Framework PEARL
 ## Environment
 
-Computational platform: Mindspore 2.0.0, NVIDIA Geforce GTX 3090 (GPU), Inter i9-10900X (CPU), CUDA Toolkit 11.7
+Computational platform: **Mindspore 2.0.0**, NVIDIA Geforce GTX 3090 (GPU), Inter i9-10900X (CPU), CUDA Toolkit 11.7
 
 Development language: Python 3.8/C++
        
