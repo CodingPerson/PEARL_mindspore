@@ -1,13 +1,13 @@
 # The Framework PEARL
 ## Environment
 
-Computational platform: **Mindspore 2.0.0**, NVIDIA Geforce GTX 3090 (GPU), Inter i9-10900X (CPU), CUDA Toolkit 11.7
+Computational platform: **Mindspore 2.1.0**, NVIDIA Geforce GTX 3090 (GPU), Inter i9-10900X (CPU), CUDA Toolkit 11.7
 
 Development language: Python 3.8/C++
        
 Liabraries are listed as follow, which can be installed via the command `pip install -r requirements.txt`.
 ```
-numpy, scipy, tqdm, scikit-learn, sentencepiece=0.1.91, transformers, nltk, os, sys, collections, itertools, argparse, subprocess, pickle, cudatoolkit=11.7, mindspore==2.0.0
+numpy, scipy, tqdm, scikit-learn, sentencepiece=0.1.91, transformers, nltk, os, sys, collections, itertools, argparse, subprocess, pickle, cudatoolkit=11.7, mindspore==2.1.0，mindnlp==0.2.0
 ```
 ## Data sets
 We provide all the data sets (profession data set, hobby data set, and 20News data set) in the folder `data/datasets/`. 
