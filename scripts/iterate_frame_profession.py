@@ -54,6 +54,8 @@ def CountWords_Embeddings(document_statics,document_words,static_word_representa
 def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,attention_mechanism):
     inter_data_dir = os.path.join(INTERMEDIATE_DATA_FOLDER_PATH, dataset_name)
     static_repr_path = os.path.join(inter_data_dir, f"static_repr_lm-bbu.pk")
+    data_dir = os.path.join(DATA_FOLDER_PATH, dataset_name)
+    classes = load_classnames(data_dir)
     with open(static_repr_path, "rb") as f:
         vocab = pickle.load(f)
         static_word_representations = vocab["static_word_representations"]
@@ -205,7 +207,7 @@ def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,atten
                     new_document_representation.append(document_representations[i])
                 else:
                     document_representation, tokens,token_embeddings,token_weights,cls_ids= weight_sentence(
-                                                              new_class_representations,
+                                                              class_representations,
                                                               document_context[i],
                                                               document_all_words[i],
                                                               document_statics[i],
@@ -228,12 +230,18 @@ def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,atten
 
     class_word_similarity_file = open('../data/datasets/profession/class_word_similarity.txt', 'w',encoding='utf-8')
     document_keywords_file = open('../data/datasets/profession/document_keywords.txt', 'w', encoding='utf-8')
+    class_words_file = open('../data/datasets/profession/class_words.txt', 'w', encoding='utf-8')
     bitem_doc_fre_file = open('../data/datasets/profession/model/bitem_doc_frequency.txt', 'w', encoding='utf-8')
     doc_to_class_similarity_file = open('../data/datasets/profession/model/doc_to_class_similarity.txt', 'w', encoding='utf-8')
+    result_file = open('../data/datasets/profession/result.txt', 'w', encoding='utf-8')
     for document in document_words:
         document_keywords_file.write(' '.join(list(document)))
         document_keywords_file.write('\n')
     document_keywords_file.close()
+    for class_word in class_words:
+        class_words_file.write(' '.join(list(class_word)))
+        class_words_file.write('\n')
+    class_words_file.close()
 
     os.system('python indexDocs.py ../data/datasets/profession/document_keywords.txt ../data/datasets/profession/doc_wids.txt ../data/datasets/profession/voca.txt')
     all_document_words=[]
@@ -317,8 +325,8 @@ def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,atten
     # #     doc_to_class_similarity_file.write('\n')
     # # doc_to_class_similarity_file.close()
     #
-    # # class_to_word_similarity = cosine_similarity_embeddings(class_representations,np.array(all_document_word_embeddings))
-    # # word_to_class_similarity = cosine_similarity_embeddings(np.array(all_document_word_embeddings),class_representations)
+    #class_to_word_similarity = cosine_similarity_embeddings(class_representations,np.array(new_document_representation))
+    #word_to_class_similarity = cosine_similarity_embeddings(np.array(new_document_representation),class_representations)
     # # for t in range(len(word_to_class_similarity)):
     # #     word_to_class_similarity[t] = MinmaxNormalization(word_to_class_similarity[t])
     # # for t in range(word_to_class_similarity.shape[1]):
@@ -396,7 +404,7 @@ def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,atten
         print(os.system('../src/btm est 72 '+str(len(vocab_lines))+' '+'0.69 0.01 50 100 ../data/datasets/profession/doc_wids.txt ../data/datasets/profession/model/ ../data/datasets/profession/class_word_similarity.txt '+str(bitem_class_similarity.shape[0])))
         print(os.system('../src/btm inf sum_b 72 ../data/datasets/profession/doc_wids.txt ../data/datasets/profession/model/ ../data/datasets/profession/model/bitem_doc_frequency.txt' ))
         cosine_similarities = np.loadtxt('../data/datasets/profession/model/k72.pz_d')
-
+        # cosine_similarities = word_to_class_similarity
         # cosine_similarities = []
         # for doc_bitem in doc_to_class_similarity:
         #     cosine_similarities.append(sum(doc_bitem))
@@ -407,12 +415,12 @@ def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,atten
         gold_labels = load_tlabels(data_dir)
         classes = load_classnames(data_dir)
         print("class_num " + str(len(classes)))
-        # for i in range(len(gold_labels)):
-        #     all_classes = [m for m in documet_token_cls_ids[i]]
-        #     counter = Counter(all_classes)
-        #     values = dict(counter).keys()
-        #     if repr_prediction[i] not in values:
-        #         repr_probility[i] = doc_word_to_class[i]
+        for i in range(len(gold_labels)):
+            all_classes = [m for m in documet_token_cls_ids[i]]
+            counter = Counter(all_classes)
+            values = dict(counter).keys()
+            if repr_prediction[i] not in values:
+                repr_probility[i] = doc_word_to_class[i]
 
         score = 0
         big_count = 0
@@ -421,6 +429,11 @@ def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,atten
         prof_dict = defaultdict(lambda: [0.0, 0])
         for i in range(len(gold_labels)):
             index_list = list(np.argsort(-repr_probility[i]))
+            result_file.write('user utterances:'+'\n')
+            result_file.write(' '.join(list(document_all_words[i]))+'\n')
+            class_index = [classes[id] for id in index_list]
+            result_file.write('user attribute:' + '\n')
+            result_file.write('\t'.join(class_index)+'\n')
             curr_golds = [int(i) for i in gold_labels[i].split(" ")]
             ranks = np.zeros(len(class_representations))
             for gold in curr_golds:
@@ -456,7 +469,7 @@ def main(dataset_name, confidence_threshold ,random_state ,lm_type ,layer ,atten
                 true_num = true_num + 1
         print("acc")
         print(float(true_num / len(gold_labels)))
-        pwz_list = np.loadtxt('../data/datasets/profession/model/k72.pw_z', dtype=np.float)
+        pwz_list = np.loadtxt('../data/datasets/profession/model/k72.pw_z', dtype=float)
         pwz = []
         for t in range(pwz_list.shape[1]):
             pwz.append(pwz_list[:,t])

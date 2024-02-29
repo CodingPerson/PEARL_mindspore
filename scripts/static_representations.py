@@ -5,19 +5,31 @@ import pickle as pk
 import string
 from collections import defaultdict, Counter
 import mindspore
-import nltk
+# import nltk
 import numpy as np
+# from mindformers import BertConfig, BertForPreTraining
+# from mindnlp.transforms import
 # import torch
 from nltk.corpus import stopwords
 from tqdm import tqdm
 from mindspore import nn,ops
-from preprocessing_utils import load
-from utils import INTERMEDIATE_DATA_FOLDER_PATH, MODELS, tensor_to_numpy
-from transformers import BertConfig
-from utils import feature_select
 
+from mindnlp.transformers import BertConfig
+from preprocessing_utils import load
+from mindnlp.modules import Glove
+from mindnlp import Vocab
+from mindnlp.transformers.models import *
+# from scripts.mindformers.mindformers.models import BertForPreTraining, BertConfig, BertModel
+# from scripts.mindformers.mindformers.models.blip2.qformer import BertModel
+# from mindformers.mindformers.models import BertForPreTraining
+from utils import INTERMEDIATE_DATA_FOLDER_PATH, MODELS, tensor_to_numpy
+# from transformers import BertConfig
+from utils import feature_select
+# mindspore.set_context(mode=0, device_id=0)
+import mindspore.common.dtype as mstype
 punctuation_map = dict((ord(char), None) for char in string.punctuation)
-s = nltk.stem.SnowballStemmer('english')
+# s = nltk.stem.SnowballStemmer('english')
+mindspore.set_context(device_target='GPU', device_id=0)
 def prepare_sentence(tokenizer, text):
     # setting for BERT
     model_max_tokens = 64
@@ -57,17 +69,25 @@ def prepare_sentence(tokenizer, text):
     return tokenized_text, tokenized_to_id_indicies, tokenids_chunks
 
 
-def sentence_encode(tokens_id, model, layer):
+def sentence_encode(tokens, model, layer):
+    seg_pos = len(tokens)
+    seg_ids = [0] * seg_pos
+    mask = [1] * len(tokens)
+    #padding = [0] * (128- len(tokens))
+    #tokens += padding
+    #seg_ids += padding
+    #mask += padding
+    inputs = mindspore.Tensor(tokens, dtype=mindspore.int32).unsqueeze(0)
 
-    inputs = mindspore.Tensor(tokens_id, dtype=mindspore.dtype.int32).unsqueeze(0)
+    masks = mindspore.Tensor(mask,dtype=mindspore.int32).unsqueeze(0)
 
-    masks = ops.ones_like(inputs,dtype=mindspore.dtype.int32)
-
-    types = ops.zeros_like(masks,dtype=mindspore.dtype.int32)
+    types = mindspore.Tensor(seg_ids,dtype=mindspore.int32).unsqueeze(0)
 
 
 
-    hidden_states = model(inputs,input_mask=masks,token_type_ids=types)
+
+
+    hidden_states = model(input_ids=inputs,attention_mask=masks,token_type_ids=types)
     all_layer_outputs = hidden_states[0]
     # print(all_layer_outputs.shape)
     layer_embedding = tensor_to_numpy(ops.squeeze(all_layer_outputs)[1: -1])
@@ -86,11 +106,11 @@ def sentence_to_wordtoken_embeddings(layer_embeddings, tokenized_text, tokenized
 def handle_sentence(model, layer, tokenized_text, tokenized_to_id_indicies, tokenids_chunks):
     layer_embeddings=[]
     for tokenids_chunk in tokenids_chunks:
-        try:
-            temp = sentence_encode(tokenids_chunk, model, layer)
-        except:
-            print('error')
-            continue
+        # try:
+        temp = sentence_encode(tokenids_chunk, model, layer)
+        # except:
+        #     print('error')
+        #     continue
 
         layer_embeddings.append(temp)
     # layer_embeddings = [
@@ -124,15 +144,15 @@ def estimate_static(vocab, vocab_min_occurrence):
     # print(f"Saved {len(static_word_representation)}/{len(vocab)} words.")
     return static_word_representation, vocab_words, vocab_occurrence
 
-def stem_count(text):
-    l_text = text.lower()
-    without_punctuation = l_text.translate(punctuation_map)
-    tokens = nltk.word_tokenize(without_punctuation)
-    without_stopwords = [w for w in tokens if not w in stopwords.words('english')]
-    cleaned_text = []
-    for i in range(len(without_stopwords)):
-        cleaned_text.append(without_stopwords[i])
-    return " ".join(cleaned_text)
+# def stem_count(text):
+#     l_text = text.lower()
+#     without_punctuation = l_text.translate(punctuation_map)
+#     tokens = nltk.word_tokenize(without_punctuation)
+#     without_stopwords = [w for w in tokens if not w in stopwords.words('english')]
+#     cleaned_text = []
+#     for i in range(len(without_stopwords)):
+#         cleaned_text.append(without_stopwords[i])
+#     return " ".join(cleaned_text)
 
 def main(args):
     dataset = load(args.dataset_name)
@@ -149,16 +169,22 @@ def main(args):
     data = dataset["cleaned_text"]
     if args.lm_type == 'bbu':
         data = [x.lower() for x in data]
+    # from mindformers import BertForPreTraining, BertConfig
+
     model_class, tokenizer_class, pretrained_weights = MODELS[args.lm_type]
+    # vocab = Vocab.from_pretrained(name="glove.6B.100d")
+    # embedding = Glove.from_pretrained('6B', 100, special_tokens=["<unk>", "<pad>"])
+    tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+    config = BertConfig.from_pretrained('bert-base-cased')
+    # config.is_decoder=False
+    # config.dtype = mindspore.dtype.float32
+    # config.compute_type = mindspore.dtype.float32
 
-    tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
-    config = BertConfig.from_pretrained(pretrained_weights)
-    config.dtype = mindspore.dtype.float32
-    config.compute_type = mindspore.dtype.float16
 
-    model = model_class(config,is_training=True,use_one_hot_embeddings=False)
-    model.set_train(False)
-    #model.cuda()
+    #model = model_class(config,is_training=True,use_one_hot_embeddings=False)
+    model = BertModel.from_pretrained('bert-base-cased', config=config)
+    #model.set_train(False)
+
 
     tokenization_info = []
     import re

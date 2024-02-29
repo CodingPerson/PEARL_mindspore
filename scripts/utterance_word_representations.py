@@ -13,8 +13,10 @@ from utils import (INTERMEDIATE_DATA_FOLDER_PATH, MODELS,
                    cosine_similarity_embedding, cosine_similarity_embeddings,
                    evaluate_predictions, tensor_to_numpy)
 from mindspore import nn,ops
-from transformers import BertConfig
-
+from mindnlp.transformers.models import *
+mindspore.set_context(device_target='GPU', device_id=0)
+import sys
+sys.path.append('..')
 def probability_confidence(prob):
     return max(softmax(prob))
 
@@ -202,15 +204,15 @@ def main(args):
     print(np.array(class_words_representations).shape)
 
     model_class, tokenizer_class, pretrained_weights = MODELS[args.lm_type]
+    #
+    # tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
+    config = BertConfig.from_pretrained('bert-base-cased')
+    # config.dtype = mindspore.dtype.float32
+    # config.compute_type = mindspore.dtype.float16
 
-    tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
-    config = BertConfig.from_pretrained(pretrained_weights)
-    config.dtype = mindspore.dtype.float32
-    config.compute_type = mindspore.dtype.float16
-
-    model = model_class(config, is_training=True, use_one_hot_embeddings=False)
-    model.set_train(False)
-
+    # model = model_class(config, is_training=True, use_one_hot_embeddings=False)
+    # model.set_train(False)
+    model = BertModel.from_pretrained('bert-base-cased', config=config)
     document_representations = []
     document_statics=[]
     document_context=[]
